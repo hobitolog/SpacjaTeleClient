@@ -35,6 +35,17 @@
 #include <QSlider>
 #include <QTimer>
 
+
+
+#include <QDialog>
+#include <QTcpServer>
+#include <QTcpSocket>
+
+class QTcpServer;
+class QTcpSocket;
+class QAction;
+
+
 class AudioInfo : public QIODevice
 {
 	Q_OBJECT
@@ -84,6 +95,10 @@ public slots:
 	void muteAudioOut();
 	void getAudio();
 
+	void acceptConnection();
+	void updateServerProgress();
+	void displayError(QAbstractSocket::SocketError socketError);
+
 
 private:
 	Ui::SpacjaTeleClientClass ui;
@@ -117,4 +132,10 @@ private:
 	jrtplib::RTPSessionParams sessparamsServ;
 	uint16_t portbaseServ;
 	int statusServ;
+
+
+	QTcpServer tcpServer;
+	QTcpSocket *tcpServerConnection;
+	int bytesReceived;
+
 };

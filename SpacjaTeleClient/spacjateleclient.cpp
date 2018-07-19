@@ -11,11 +11,35 @@
 #include <QAudioOutput>
 #include <qmath.h>
 
+#include <QtWidgets>
+#include <QtNetwork>
+
+static const int TotalBytes = 100;
+
+
 SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
-	: QMainWindow(parent) 
+	: QMainWindow(parent)
 {
 	ui.setupUi(this);
 	m_pushTimer = new QTimer(this);
+
+#ifndef QT_NO_CURSOR
+	QApplication::setOverrideCursor(Qt::WaitCursor);
+#endif
+
+	while (!tcpServer.isListening() && !tcpServer.listen(QHostAddress::Any, 6060)) {
+		QMessageBox::StandardButton ret = QMessageBox::critical(this,
+			tr("TcpServer"),
+			tr("Unable to start: %1.")
+			.arg(tcpServer.errorString()),
+			QMessageBox::Retry
+			| QMessageBox::Cancel);
+		if (ret == QMessageBox::Cancel)
+			return;
+	}
+	bytesReceived = 0;
+
+	connect(&tcpServer, SIGNAL(newConnection()), this, SLOT(acceptConnection()));
 
 	onChangeChannel();
 	rtpInit();
@@ -23,7 +47,7 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 	rtpServInit();
 
 	sendAudio();
-	
+
 
 
 
@@ -31,12 +55,8 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 }
 
 
-void SpacjaTeleClient::changeChannel(int i) {
-
-
-	std::cout << i << std::endl;
-	ui.IpLabel->setText(QString::number(i));
-	//ui.IpAddr->text = "1258n";
+void SpacjaTeleClient::changeChannel(int i)
+{
 	m_audioInput->suspend();
 	m_audioOutput->suspend();
 	sess.BYEDestroy(jrtplib::RTPTime(10, 0), 0, 0);
@@ -73,12 +93,11 @@ void SpacjaTeleClient::changeChannel(int i) {
 
 }
 
-void SpacjaTeleClient::onChangeChannel() {
-
+void SpacjaTeleClient::onChangeChannel() 
+{
 	connect(ui.ChannelSpin, QOverload<int>::of(&QSpinBox::valueChanged),
 		[=](int i) { SpacjaTeleClient::changeChannel(i); });
 }
-
 
 void SpacjaTeleClient::checkerror(int rtperr)
 {
@@ -87,7 +106,6 @@ void SpacjaTeleClient::checkerror(int rtperr)
 		std::string tmp = jrtplib::RTPGetErrorString(rtperr);
 		std::cout << "ERROR: " << jrtplib::RTPGetErrorString(rtperr) << std::endl;
 		qDebug(tmp.c_str());
-
 	}
 }
 
@@ -95,6 +113,7 @@ SpacjaTeleClient::~SpacjaTeleClient()
 {
 	disconnectAll();
 }
+
 void SpacjaTeleClient::disconnectAll()
 {
 	m_audioInput->stop();
@@ -108,11 +127,7 @@ void SpacjaTeleClient::disconnectAll()
 #ifdef RTP_SOCKETTYPE_WINSOCK
 	WSACleanup();
 #endif // RTP_SOCKETTYPE_WINSOCK
-
-
 }
-
-
 
 void SpacjaTeleClient::audioInit(const QAudioDeviceInfo &deviceInfoIn, const QAudioDeviceInfo &deviceInfoOut)
 {
@@ -132,16 +147,11 @@ void SpacjaTeleClient::audioInit(const QAudioDeviceInfo &deviceInfoIn, const QAu
 		qWarning() << "Default format not supported - trying to use nearest";
 		format = deviceInfoOut.nearestFormat(format);
 	}
-
-
 	m_audioInfo.reset(new AudioInfo(format));//nadawanie
 	m_audioInput.reset(new QAudioInput(deviceInfoIn, format));//nadawanie
 	m_audioInfo->start();//nadawanie
 	m_audioOutput.reset(new QAudioOutput(deviceInfoOut, format));
-
-
 }
-
 
 void SpacjaTeleClient::sendAudio()
 {
@@ -151,7 +161,6 @@ void SpacjaTeleClient::sendAudio()
 	connect(io, &QIODevice::readyRead,
 		[&, io]() {
 		qint64 len = m_audioInput->bytesReady();
-		qDebug() <<"buff: "<< len;
 		const int BufferSize = 4096;
 		if (len > BufferSize)
 			len = BufferSize;
@@ -160,22 +169,14 @@ void SpacjaTeleClient::sendAudio()
 		qint64 l = io->read(buffer.data(), len);
 		if (l > 0)
 		{
-			qDebug() <<"nadane: "<<buffer.constData();
 			status = sess.SendPacket((void *)buffer.data(), buffer.length(), 0, false, 1);
 			SpacjaTeleClient::checkerror(status);
-
-
 		}
-
 	});
 }
 
 void SpacjaTeleClient::getAudio()
 {
-
-
-
-
 	m_pushTimer->stop();
 	m_audioOutput->stop();
 
@@ -183,7 +184,6 @@ void SpacjaTeleClient::getAudio()
 	m_pushTimer->disconnect();
 
 	connect(m_pushTimer, &QTimer::timeout, [this, io]() {
-
 
 		int chunks = m_audioOutput->bytesFree() / m_audioOutput->periodSize();
 		while (chunks) {
@@ -197,7 +197,6 @@ void SpacjaTeleClient::getAudio()
 	});
 
 	m_pushTimer->start(20);
-
 }
 
 void SpacjaTeleClient::muteAudioOut()
@@ -241,8 +240,8 @@ void SpacjaTeleClient::rtpInit(std::string ipString, uint16_t portIn, uint16_t p
 
 	status = sess.AddDestination(addr);
 	SpacjaTeleClient::checkerror(status);
-
 }
+
 void SpacjaTeleClient::rtpServInit(uint16_t portIn)
 {
 
@@ -256,11 +255,7 @@ void SpacjaTeleClient::rtpServInit(uint16_t portIn)
 	statusServ = sessServ.Create(sessparamsServ, &transparamsServ);
 	checkerror(statusServ);
 	getAudio();
-
-
 }
-
-
 
 AudioInfo::AudioInfo(const QAudioFormat &format)
 	: m_format(format)
@@ -413,18 +408,74 @@ void MyRTPSession::OnPollThreadStep()
 			}
 		} while (GotoNextSourceWithData());
 	}
-
 	EndDataAccess();
 }
+
 MyRTPSession::MyRTPSession()
 {
 	arrayBuff = QByteArray(32768, 0);
-
 }
 
 void MyRTPSession::ProcessRTPPacket(const jrtplib::RTPSourceData &srcdat, const jrtplib::RTPPacket &rtppack)
 {
-	// You can inspect the packet and the source's info here
 	arrayBuff = reinterpret_cast< char*>( rtppack.GetPayloadData());
 	qDebug() << " odbior: " << reinterpret_cast<char*>(rtppack.GetPayloadData());
+}
+
+void SpacjaTeleClient::acceptConnection()
+{
+	tcpServerConnection = tcpServer.nextPendingConnection();
+	connect(tcpServerConnection, SIGNAL(readyRead()),
+		this, SLOT(updateServerProgress()));
+	connect(tcpServerConnection, SIGNAL(error(QAbstractSocket::SocketError)),
+		this, SLOT(displayError(QAbstractSocket::SocketError)));
+}
+
+void SpacjaTeleClient::updateServerProgress()
+{
+	bytesReceived += (int)tcpServerConnection->bytesAvailable();
+	QByteArray abc(100, '_');
+	tcpServerConnection->read(abc.data(), 100);
+	std::string input = abc.data();
+	std::string delimiter = " ";
+
+	size_t pos = 0;
+	std::string token;
+	qDebug() << QString::fromStdString(input);
+	while ((pos = input.find(delimiter)) != std::string::npos) {
+		token = input.substr(0, pos);
+		input.erase(0, pos + delimiter.length());
+
+		if (token == "name")
+		{
+			ui.ClientName->setText(QString::fromStdString(input));
+		}
+		else if (token == "ready")
+		{
+			//do action to be ready
+
+		}
+		else if (token == "live")
+		{
+			//do action live
+
+		}
+	}
+
+	if (bytesReceived == TotalBytes) {
+		tcpServerConnection->close();
+#ifndef QT_NO_CURSOR
+		QApplication::restoreOverrideCursor();
+#endif
+	}
+}
+
+void SpacjaTeleClient::displayError(QAbstractSocket::SocketError socketError)
+{
+	if (socketError == QTcpSocket::RemoteHostClosedError)
+		return;
+	tcpServer.close();
+#ifndef QT_NO_CURSOR
+	QApplication::restoreOverrideCursor();
+#endif
 }
