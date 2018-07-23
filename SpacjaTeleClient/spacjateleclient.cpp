@@ -23,6 +23,14 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 	ui.setupUi(this);
 	m_pushTimer = new QTimer(this);
 
+
+	QPixmap pixmap("./mic_on.png");
+	QIcon ButtonIcon(pixmap);
+	ui.MicSig->setIcon(ButtonIcon);
+	ui.MicSig->setIconSize(pixmap.rect().size());
+	ui.MicSig->setFixedSize(pixmap.rect().size());
+	connect(ui.MicSig, SIGNAL(clicked()), this, SLOT(muteAudioOut()));
+
 #ifndef QT_NO_CURSOR
 	QApplication::setOverrideCursor(Qt::WaitCursor);
 #endif
@@ -53,7 +61,6 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 
 
 }
-
 
 void SpacjaTeleClient::changeChannel(int i)
 {
@@ -87,10 +94,6 @@ void SpacjaTeleClient::changeChannel(int i)
 	sessServ.arrayBuff.clear();
 	m_audioInput->resume();
 	m_audioOutput->resume();
-
-
-
-
 }
 
 void SpacjaTeleClient::onChangeChannel() 
@@ -201,18 +204,27 @@ void SpacjaTeleClient::getAudio()
 
 void SpacjaTeleClient::muteAudioOut()
 {
-	//// toggle suspend/resume
-	//if (m_audioInput->state() == QAudio::SuspendedState || m_audioInput->state() == QAudio::StoppedState) {
-	//	m_audioInput->resume();
-	//	m_suspendResumeButton->setText(tr("Suspend recording"));
-	//}
-	//else if (m_audioInput->state() == QAudio::ActiveState) {
-	//	m_audioInput->suspend();
-	//	m_suspendResumeButton->setText(tr("Resume recording"));
-	//}
-	//else if (m_audioInput->state() == QAudio::IdleState) {
-	//	// no-op
-	//}
+	// toggle suspend/resume
+	if (m_audioInput->state() == QAudio::SuspendedState || m_audioInput->state() == QAudio::StoppedState) {
+		m_audioInput->resume();
+		QPixmap pixmap("./mic_on.png");
+		QIcon ButtonIcon(pixmap);
+		ui.MicSig->setIcon(ButtonIcon);
+		ui.MicSig->setIconSize(pixmap.rect().size());
+		ui.MicSig->setFixedSize(pixmap.rect().size());
+	}
+	else if (m_audioInput->state() == QAudio::ActiveState) {
+		m_audioInput->suspend();
+		QPixmap pixmap("./mic_off.png");
+		QIcon ButtonIcon(pixmap);
+		ui.MicSig->setIcon(ButtonIcon);
+		ui.MicSig->setIconSize(pixmap.rect().size());
+		ui.MicSig->setFixedSize(pixmap.rect().size());
+		sessServ.arrayBuff.clear();
+	}
+	else if (m_audioInput->state() == QAudio::IdleState) {
+		// no-op
+	}
 }
 
 void SpacjaTeleClient::rtpInit(std::string ipString, uint16_t portIn, uint16_t potDes)

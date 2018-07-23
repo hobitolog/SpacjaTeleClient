@@ -99,7 +99,6 @@ public slots:
 	void updateServerProgress();
 	void displayError(QAbstractSocket::SocketError socketError);
 
-
 private:
 	Ui::SpacjaTeleClientClass ui;
 	QScopedPointer<AudioInfo> m_audioInfo;

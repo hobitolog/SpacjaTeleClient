@@ -68,16 +68,6 @@
      <string>Mic is On</string>
     </property>
    </widget>
-   <widget class="QGraphicsView" name="MicSig">
-    <property name="geometry">
-     <rect>
-      <x>260</x>
-      <y>130</y>
-      <width>81</width>
-      <height>71</height>
-     </rect>
-    </property>
-   </widget>
    <widget class="QLabel" name="RoomLabel">
     <property name="geometry">
      <rect>
@@ -167,6 +157,22 @@
     </property>
     <property name="text">
      <string>Ready</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="MicSig">
+    <property name="geometry">
+     <rect>
+      <x>260</x>
+      <y>132</y>
+      <width>81</width>
+      <height>71</height>
+     </rect>
+    </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
+    <property name="text">
+     <string/>
     </property>
    </widget>
   </widget>

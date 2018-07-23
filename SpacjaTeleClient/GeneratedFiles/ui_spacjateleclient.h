@@ -17,6 +17,7 @@
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QWidget>
 
@@ -29,7 +30,6 @@ public:
     QLabel *ClientName;
     QLabel *IpAddr;
     QLabel *MicLabel;
-    QGraphicsView *MicSig;
     QLabel *RoomLabel;
     QGraphicsView *ReadySig;
     QSpinBox *ChannelSpin;
@@ -37,6 +37,7 @@ public:
     QLabel *IpLabel;
     QLabel *LiveLabel;
     QLabel *ReadyLabel;
+    QPushButton *MicSig;
 
     void setupUi(QMainWindow *SpacjaTeleClientClass)
     {
@@ -57,9 +58,6 @@ public:
         MicLabel = new QLabel(centralWidget);
         MicLabel->setObjectName(QStringLiteral("MicLabel"));
         MicLabel->setGeometry(QRect(280, 110, 47, 13));
-        MicSig = new QGraphicsView(centralWidget);
-        MicSig->setObjectName(QStringLiteral("MicSig"));
-        MicSig->setGeometry(QRect(260, 130, 81, 71));
         RoomLabel = new QLabel(centralWidget);
         RoomLabel->setObjectName(QStringLiteral("RoomLabel"));
         RoomLabel->setGeometry(QRect(130, 60, 51, 41));
@@ -84,6 +82,10 @@ public:
         ReadyLabel = new QLabel(centralWidget);
         ReadyLabel->setObjectName(QStringLiteral("ReadyLabel"));
         ReadyLabel->setGeometry(QRect(50, 110, 47, 13));
+        MicSig = new QPushButton(centralWidget);
+        MicSig->setObjectName(QStringLiteral("MicSig"));
+        MicSig->setGeometry(QRect(260, 132, 81, 71));
+        MicSig->setAutoFillBackground(false);
         SpacjaTeleClientClass->setCentralWidget(centralWidget);
 
         retranslateUi(SpacjaTeleClientClass);
@@ -101,6 +103,7 @@ public:
         IpLabel->setText(QApplication::translate("SpacjaTeleClientClass", "IP Addr: ", nullptr));
         LiveLabel->setText(QApplication::translate("SpacjaTeleClientClass", "Live", nullptr));
         ReadyLabel->setText(QApplication::translate("SpacjaTeleClientClass", "Ready", nullptr));
+        MicSig->setText(QString());
     } // retranslateUi
 
 };
