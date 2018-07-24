@@ -20,8 +20,32 @@ static const int TotalBytes = 100;
 SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 	: QMainWindow(parent)
 {
+
 	ui.setupUi(this);
 	m_pushTimer = new QTimer(this);
+	timerSig = new QTimer();
+	timerSig->setInterval(1000);
+	toLive = 1;
+	connect(timerSig, SIGNAL(timeout()), this, SLOT(decrementSig()));
+
+
+	for (const QHostAddress &address : QNetworkInterface::allAddresses())
+	{
+		if (address.protocol() == QAbstractSocket::IPv4Protocol && address != QHostAddress(QHostAddress::LocalHost))
+		{
+			ui.IpAddr->setText(address.toString());
+		}
+	}
+
+	ch1 = "192.168.0.104";
+	ch2 = "127.0.0.1";
+	ch3 = "192.168.1.10";
+	ch4 = "192.168.0.104";
+	portAudioOut1=8080;
+	portAudioOut2=8082;
+	portAudioOut3=8084;
+	portAudioOut4=8086;
+	portAudioIn=8082;
 
 
 	QPixmap pixmap("./mic_on.png");
@@ -56,10 +80,41 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 
 	sendAudio();
 
+}
 
+void SpacjaTeleClient::decrementSig()
+{	
+	ui.ReadySig->setText(QString::number(toLive));
 
+	if (toLive <= 0)
+	{
+		timerSig->stop();
+		beLiveSig();
+	}
+	toLive--;
 
+}
 
+//if you want to be instant live time==0;
+void SpacjaTeleClient::beReadySig(int time)
+{
+	if (time == 0)
+	{
+		toLive = time;
+		timerSig->stop();
+		beLiveSig();
+	}
+	else
+	{
+		toLive = time;
+		timerSig->start();
+	}
+}
+
+void SpacjaTeleClient::beLiveSig()
+{
+	ui.ReadySig->setText("");
+	ui.liveSig->setText((ui.liveSig->text()=="") ? "ON AIR" : "");
 }
 
 void SpacjaTeleClient::changeChannel(int i)
@@ -75,20 +130,20 @@ void SpacjaTeleClient::changeChannel(int i)
 	switch (i)
 	{
 	case 1:
-		rtpInit("127.0.0.1", 1234, 8080);
-		rtpServInit(8082);
+		rtpInit(ch1, 1234, portAudioOut1);
+		rtpServInit(portAudioIn);
 		break;
 	case 2:
-		rtpInit("127.0.0.1", 1234, 8082);
-		rtpServInit(8082);
+		rtpInit(ch2, 1234, portAudioOut2);
+		rtpServInit(portAudioIn);
 		break;
 	case 3:
-		rtpInit("127.0.0.1", 1234, 8086);
-		rtpServInit(8084);
+		rtpInit(ch3, 1234, portAudioOut3);
+		rtpServInit(portAudioIn);
 		break;
 	case 4:
-		rtpInit("127.0.0.1", 1234, 9090);
-		rtpServInit(9092);
+		rtpInit(ch4, 1234, portAudioOut4);
+		rtpServInit(portAudioIn);
 		break;
 	}
 	sessServ.arrayBuff.clear();
@@ -431,7 +486,6 @@ MyRTPSession::MyRTPSession()
 void MyRTPSession::ProcessRTPPacket(const jrtplib::RTPSourceData &srcdat, const jrtplib::RTPPacket &rtppack)
 {
 	arrayBuff = reinterpret_cast< char*>( rtppack.GetPayloadData());
-	qDebug() << " odbior: " << reinterpret_cast<char*>(rtppack.GetPayloadData());
 }
 
 void SpacjaTeleClient::acceptConnection()
@@ -453,24 +507,58 @@ void SpacjaTeleClient::updateServerProgress()
 
 	size_t pos = 0;
 	std::string token;
-	qDebug() << QString::fromStdString(input);
 	while ((pos = input.find(delimiter)) != std::string::npos) {
 		token = input.substr(0, pos);
 		input.erase(0, pos + delimiter.length());
 
-		if (token == "name")
+		if (token == "name")// name newName
 		{
 			ui.ClientName->setText(QString::fromStdString(input));
 		}
-		else if (token == "ready")
+		else if (token == "beReady")// ready INT_time
 		{
-			//do action to be ready
+			beReadySig(std::atoi(input.c_str()));
 
 		}
-		else if (token == "live")
+		else if (token == "live")// live
 		{
-			//do action live
-
+			beLiveSig();
+		}
+		else if (token == "ch1")// ch1
+		{
+			ch1 = input;
+		}
+		else if (token == "ch2")// ch2
+		{
+			ch2 = input;
+		}
+		else if (token == "ch3")// ch3
+		{
+			ch3 = input;
+		}
+		else if (token == "ch4")// ch4
+		{
+			ch4 = input;
+		}
+		else if (token == "PO1")// PO1
+		{
+			portAudioOut1 = std::atoi(input.c_str());
+		}
+		else if (token == "PO2")// PO2
+		{
+			portAudioOut2 = std::atoi(input.c_str());
+		}
+		else if (token == "PO3")// PO3
+		{
+			portAudioOut3 = std::atoi(input.c_str());
+		}
+		else if (token == "PO4")// PO4
+		{
+			portAudioOut4 = std::atoi(input.c_str());
+		}
+		else if (token == "PI")// PI
+		{
+			portAudioIn = std::atoi(input.c_str());
 		}
 	}
 

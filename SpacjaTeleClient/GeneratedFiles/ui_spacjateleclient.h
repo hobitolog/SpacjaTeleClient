@@ -13,7 +13,6 @@
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
-#include <QtWidgets/QGraphicsView>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
@@ -31,13 +30,13 @@ public:
     QLabel *IpAddr;
     QLabel *MicLabel;
     QLabel *RoomLabel;
-    QGraphicsView *ReadySig;
     QSpinBox *ChannelSpin;
-    QGraphicsView *LiveSig;
     QLabel *IpLabel;
     QLabel *LiveLabel;
     QLabel *ReadyLabel;
     QPushButton *MicSig;
+    QPushButton *liveSig;
+    QPushButton *ReadySig;
 
     void setupUi(QMainWindow *SpacjaTeleClientClass)
     {
@@ -54,28 +53,21 @@ public:
         ClientName->setAlignment(Qt::AlignCenter);
         IpAddr = new QLabel(centralWidget);
         IpAddr->setObjectName(QStringLiteral("IpAddr"));
-        IpAddr->setGeometry(QRect(320, 10, 61, 16));
+        IpAddr->setGeometry(QRect(250, 10, 81, 16));
         MicLabel = new QLabel(centralWidget);
         MicLabel->setObjectName(QStringLiteral("MicLabel"));
         MicLabel->setGeometry(QRect(280, 110, 47, 13));
         RoomLabel = new QLabel(centralWidget);
         RoomLabel->setObjectName(QStringLiteral("RoomLabel"));
         RoomLabel->setGeometry(QRect(130, 60, 51, 41));
-        ReadySig = new QGraphicsView(centralWidget);
-        ReadySig->setObjectName(QStringLiteral("ReadySig"));
-        ReadySig->setGeometry(QRect(20, 130, 81, 71));
-        ReadySig->setResizeAnchor(QGraphicsView::NoAnchor);
         ChannelSpin = new QSpinBox(centralWidget);
         ChannelSpin->setObjectName(QStringLiteral("ChannelSpin"));
         ChannelSpin->setGeometry(QRect(180, 60, 42, 41));
         ChannelSpin->setMinimum(1);
         ChannelSpin->setMaximum(4);
-        LiveSig = new QGraphicsView(centralWidget);
-        LiveSig->setObjectName(QStringLiteral("LiveSig"));
-        LiveSig->setGeometry(QRect(140, 130, 81, 71));
         IpLabel = new QLabel(centralWidget);
         IpLabel->setObjectName(QStringLiteral("IpLabel"));
-        IpLabel->setGeometry(QRect(280, 10, 47, 16));
+        IpLabel->setGeometry(QRect(200, 10, 47, 16));
         LiveLabel = new QLabel(centralWidget);
         LiveLabel->setObjectName(QStringLiteral("LiveLabel"));
         LiveLabel->setGeometry(QRect(170, 110, 47, 13));
@@ -84,8 +76,25 @@ public:
         ReadyLabel->setGeometry(QRect(50, 110, 47, 13));
         MicSig = new QPushButton(centralWidget);
         MicSig->setObjectName(QStringLiteral("MicSig"));
-        MicSig->setGeometry(QRect(260, 132, 81, 71));
+        MicSig->setGeometry(QRect(260, 132, 80, 80));
         MicSig->setAutoFillBackground(false);
+        liveSig = new QPushButton(centralWidget);
+        liveSig->setObjectName(QStringLiteral("liveSig"));
+        liveSig->setGeometry(QRect(140, 130, 80, 80));
+        QFont font;
+        font.setPointSize(13);
+        font.setBold(true);
+        font.setWeight(75);
+        font.setStrikeOut(false);
+        liveSig->setFont(font);
+        liveSig->setAutoFillBackground(false);
+        liveSig->setStyleSheet(QStringLiteral("color: red;"));
+        ReadySig = new QPushButton(centralWidget);
+        ReadySig->setObjectName(QStringLiteral("ReadySig"));
+        ReadySig->setGeometry(QRect(20, 130, 80, 80));
+        QFont font1;
+        font1.setPointSize(45);
+        ReadySig->setFont(font1);
         SpacjaTeleClientClass->setCentralWidget(centralWidget);
 
         retranslateUi(SpacjaTeleClientClass);
@@ -104,6 +113,8 @@ public:
         LiveLabel->setText(QApplication::translate("SpacjaTeleClientClass", "Live", nullptr));
         ReadyLabel->setText(QApplication::translate("SpacjaTeleClientClass", "Ready", nullptr));
         MicSig->setText(QString());
+        liveSig->setText(QString());
+        ReadySig->setText(QString());
     } // retranslateUi
 
 };

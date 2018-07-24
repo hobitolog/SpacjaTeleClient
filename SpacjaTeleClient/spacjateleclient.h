@@ -94,6 +94,7 @@ public slots:
 	void sendAudio();
 	void muteAudioOut();
 	void getAudio();
+	void decrementSig();
 
 	void acceptConnection();
 	void updateServerProgress();
@@ -113,6 +114,16 @@ private:
 	void changeChannel(int num);
 	void onChangeChannel();
 	void checkerror(int rtperr);
+	std::string ch1;
+	std::string ch2;
+	std::string ch3;
+	std::string ch4;
+	int portAudioOut1;
+	int portAudioOut2;
+	int portAudioOut3;
+	int portAudioOut4;
+	int portAudioIn;
+
 
 
 	WSADATA dat;
@@ -132,9 +143,13 @@ private:
 	uint16_t portbaseServ;
 	int statusServ;
 
-
 	QTcpServer tcpServer;
 	QTcpSocket *tcpServerConnection;
 	int bytesReceived;
+
+	QTimer *timerSig;
+	int toLive;
+	void beReadySig(int time);
+	void beLiveSig();
 
 };
