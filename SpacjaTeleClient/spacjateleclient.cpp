@@ -262,6 +262,7 @@ void SpacjaTeleClient::muteAudioOut()
 	// toggle suspend/resume
 	if (m_audioInput->state() == QAudio::SuspendedState || m_audioInput->state() == QAudio::StoppedState) {
 		m_audioInput->resume();
+		ui.MicLabel->setText("Mic is on");
 		QPixmap pixmap("./mic_on.png");
 		QIcon ButtonIcon(pixmap);
 		ui.MicSig->setIcon(ButtonIcon);
@@ -270,6 +271,7 @@ void SpacjaTeleClient::muteAudioOut()
 	}
 	else if (m_audioInput->state() == QAudio::ActiveState) {
 		m_audioInput->suspend();
+		ui.MicLabel->setText("Mic is off");
 		QPixmap pixmap("./mic_off.png");
 		QIcon ButtonIcon(pixmap);
 		ui.MicSig->setIcon(ButtonIcon);
