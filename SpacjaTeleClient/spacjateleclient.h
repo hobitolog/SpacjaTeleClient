@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QAction>
 #include <QAudioInput>
 #include <QByteArray>
 #include <QComboBox>
@@ -99,8 +100,14 @@ public slots:
 	void acceptConnection();
 	void updateServerProgress();
 	void displayError(QAbstractSocket::SocketError socketError);
+	void channelSpinUp();
+	void channelSpinDown();
 
 private:
+	QAction * action1Button;
+	QAction * action2Button;
+	QAction * action3Button;
+
 	Ui::SpacjaTeleClientClass ui;
 	QScopedPointer<AudioInfo> m_audioInfo;
 	QScopedPointer<QAudioInput> m_audioInput;

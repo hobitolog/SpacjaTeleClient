@@ -25,6 +25,7 @@ QT_BEGIN_NAMESPACE
 class Ui_SpacjaTeleClientClass
 {
 public:
+    QAction *actionM;
     QWidget *centralWidget;
     QLabel *ClientName;
     QLabel *IpAddr;
@@ -45,6 +46,9 @@ public:
         SpacjaTeleClientClass->resize(400, 240);
         SpacjaTeleClientClass->setMinimumSize(QSize(400, 240));
         SpacjaTeleClientClass->setMaximumSize(QSize(400, 240));
+        actionM = new QAction(SpacjaTeleClientClass);
+        actionM->setObjectName(QStringLiteral("actionM"));
+        actionM->setCheckable(true);
         centralWidget = new QWidget(SpacjaTeleClientClass);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
         ClientName = new QLabel(centralWidget);
@@ -63,6 +67,7 @@ public:
         ChannelSpin = new QSpinBox(centralWidget);
         ChannelSpin->setObjectName(QStringLiteral("ChannelSpin"));
         ChannelSpin->setGeometry(QRect(180, 60, 42, 41));
+        ChannelSpin->setFocusPolicy(Qt::NoFocus);
         ChannelSpin->setMinimum(1);
         ChannelSpin->setMaximum(4);
         IpLabel = new QLabel(centralWidget);
@@ -77,6 +82,7 @@ public:
         MicSig = new QPushButton(centralWidget);
         MicSig->setObjectName(QStringLiteral("MicSig"));
         MicSig->setGeometry(QRect(260, 132, 80, 80));
+        MicSig->setFocusPolicy(Qt::StrongFocus);
         MicSig->setAutoFillBackground(false);
         liveSig = new QPushButton(centralWidget);
         liveSig->setObjectName(QStringLiteral("liveSig"));
@@ -99,12 +105,19 @@ public:
 
         retranslateUi(SpacjaTeleClientClass);
 
+        MicSig->setDefault(true);
+
+
         QMetaObject::connectSlotsByName(SpacjaTeleClientClass);
     } // setupUi
 
     void retranslateUi(QMainWindow *SpacjaTeleClientClass)
     {
         SpacjaTeleClientClass->setWindowTitle(QApplication::translate("SpacjaTeleClientClass", "SpacjaTeleClient", nullptr));
+        actionM->setText(QApplication::translate("SpacjaTeleClientClass", "M", nullptr));
+#ifndef QT_NO_SHORTCUT
+        actionM->setShortcut(QApplication::translate("SpacjaTeleClientClass", "M", nullptr));
+#endif // QT_NO_SHORTCUT
         ClientName->setText(QApplication::translate("SpacjaTeleClientClass", "\305\232rodek", nullptr));
         IpAddr->setText(QApplication::translate("SpacjaTeleClientClass", "127.0.0.1", nullptr));
         MicLabel->setText(QApplication::translate("SpacjaTeleClientClass", "Mic is On", nullptr));

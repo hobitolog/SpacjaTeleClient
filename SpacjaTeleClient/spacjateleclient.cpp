@@ -47,6 +47,23 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 	portAudioOut4=8086;
 	portAudioIn=8082;
 
+	action1Button = new QAction();
+	action1Button->setShortcut(Qt::Key_F1);
+	action2Button = new QAction();
+	action2Button->setShortcut(Qt::Key_F2);
+	action3Button = new QAction();
+	action3Button->setShortcut(Qt::Key_F3);
+
+
+	connect(action1Button, SIGNAL(triggered()), this, SLOT(muteAudioOut()));
+	connect(action2Button, SIGNAL(triggered()), this, SLOT(channelSpinUp()));
+	connect(action3Button, SIGNAL(triggered()), this, SLOT(channelSpinDown()));
+	addAction(action1Button);
+	addAction(action2Button);
+	addAction(action3Button);
+
+
+
 
 	QPixmap pixmap("./mic_on.png");
 	QIcon ButtonIcon(pixmap);
@@ -80,6 +97,18 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 
 	sendAudio();
 
+
+
+}
+
+void SpacjaTeleClient::channelSpinUp()
+{
+	ui.ChannelSpin->stepBy(1);
+}
+
+void SpacjaTeleClient::channelSpinDown()
+{
+	ui.ChannelSpin->stepBy(-1);
 }
 
 void SpacjaTeleClient::decrementSig()

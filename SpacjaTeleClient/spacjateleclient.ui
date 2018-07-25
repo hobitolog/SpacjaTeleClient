@@ -90,6 +90,9 @@
       <height>41</height>
      </rect>
     </property>
+    <property name="focusPolicy">
+     <enum>Qt::NoFocus</enum>
+    </property>
     <property name="minimum">
      <number>1</number>
     </property>
@@ -145,11 +148,17 @@
       <height>80</height>
      </rect>
     </property>
+    <property name="focusPolicy">
+     <enum>Qt::StrongFocus</enum>
+    </property>
     <property name="autoFillBackground">
      <bool>false</bool>
     </property>
     <property name="text">
      <string/>
+    </property>
+    <property name="default">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="QPushButton" name="liveSig">
@@ -198,6 +207,17 @@
     </property>
    </widget>
   </widget>
+  <action name="actionM">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>M</string>
+   </property>
+   <property name="shortcut">
+    <string>M</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
