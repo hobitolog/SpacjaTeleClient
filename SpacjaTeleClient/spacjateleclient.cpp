@@ -1,18 +1,9 @@
 #include "spacjateleclient.h"
 #include <stdlib.h>
 #include <math.h>
-
-#include <QDateTime>
-#include <QDebug>
-#include <QVBoxLayout>
-#include <QAudioDeviceInfo>
-#include <qendian.h>
-
-#include <QAudioOutput>
-#include <qmath.h>
-
-#include <QtWidgets>
-#include <QtNetwork>
+#include <QNetworkInterface>
+#include <QMessageBox>
+#include <iostream>
 
 static const int TotalBytes = 100;
 
@@ -21,6 +12,9 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 	: QMainWindow(parent)
 {
 
+#ifdef RTP_SOCKETTYPE_WINSOCK
+	WSAStartup(MAKEWORD(2, 2), &dat);
+#endif // RTP_SOCKETTYPE_WINSOCK
 	ui.setupUi(this);
 	m_pushTimer = new QTimer(this);
 	timerSig = new QTimer();
@@ -36,16 +30,6 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 			ui.IpAddr->setText(address.toString());
 		}
 	}
-
-	ch1 = "192.168.0.104";
-	ch2 = "127.0.0.1";
-	ch3 = "192.168.1.10";
-	ch4 = "192.168.0.104";
-	portAudioOut1=8080;
-	portAudioOut2=8082;
-	portAudioOut3=8084;
-	portAudioOut4=8086;
-	portAudioIn=8082;
 
 	action1Button = new QAction();
 	action1Button->setShortcut(Qt::Key_F1);
@@ -90,15 +74,31 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 
 	connect(&tcpServer, SIGNAL(newConnection()), this, SLOT(acceptConnection()));
 
-	onChangeChannel();
-	rtpInit();
+	ui.ChannelSpin->setMaximum(0);
+	ui.ChannelSpin->setMinimum(1);
+	QTcpSocket tcpClient;
+	tcpClient.connectToHost(QHostAddress::Broadcast, serverTcpPort);
+	if (tcpClient.waitForConnected(10000))
+	{
+		tcpClient.write("DISC");
+	}
+
+	ChannelInfo channelInfo;
+	channelInfo.portAudioIn = 6070;
+	channelInfo.nameOnChannel = "LOCAL";
+	Host localhost;
+	localhost.hostAddress = QHostAddress::LocalHost;
+	localhost.hostPort = 6070;
+	channelInfo.hosts.push_back(localhost);
+	currentChannel = &channelInfo;
+
+	updateChannel();
 	audioInit(QAudioDeviceInfo::defaultInputDevice(), QAudioDeviceInfo::defaultOutputDevice());
-	rtpServInit();
+	rtpInit();
+
+	onChangeChannel();
 
 	sendAudio();
-
-
-
 }
 
 void SpacjaTeleClient::channelSpinUp()
@@ -143,41 +143,55 @@ void SpacjaTeleClient::beReadySig(int time)
 void SpacjaTeleClient::beLiveSig()
 {
 	ui.ReadySig->setText("");
-	ui.liveSig->setText((ui.liveSig->text()=="") ? "ON AIR" : "");
+	if ((ui.liveSig->text() == ""))
+	{
+		ui.liveSig->setText("ON AIR");
+
+		tcpServerConnection->write("LACK/");
+	}
+	else
+	{
+		ui.liveSig->setText("");
+		tcpServerConnection->write("LACK/");
+	}
+
 }
 
-void SpacjaTeleClient::changeChannel(int i)
+void SpacjaTeleClient::changeChannel(int channel)
 {
+	int i = channel - 1;
+	currentChannel = &channelInfos[i];
+	ui.ClientName->setText(QString::fromStdString(currentChannel->nameOnChannel));
 	m_audioInput->suspend();
 	m_audioOutput->suspend();
-	sess.BYEDestroy(jrtplib::RTPTime(10, 0), 0, 0);
-	sessServ.BYEDestroy(jrtplib::RTPTime(10, 0), 0, 0);
-#ifdef RTP_SOCKETTYPE_WINSOCK
-	WSACleanup();
-#endif // RTP_SOCKETTYPE_WINSOCK
 
-	switch (i)
-	{
-	case 1:
-		rtpInit(ch1, 1234, portAudioOut1);
-		rtpServInit(portAudioIn);
-		break;
-	case 2:
-		rtpInit(ch2, 1234, portAudioOut2);
-		rtpServInit(portAudioIn);
-		break;
-	case 3:
-		rtpInit(ch3, 1234, portAudioOut3);
-		rtpServInit(portAudioIn);
-		break;
-	case 4:
-		rtpInit(ch4, 1234, portAudioOut4);
-		rtpServInit(portAudioIn);
-		break;
-	}
-	sessServ.arrayBuff.clear();
+	sess.BYEDestroy(jrtplib::RTPTime(10, 0), 0, 0);
+	rtpInit();
+
+
+	sess.arrayBuff.clear();
 	m_audioInput->resume();
 	m_audioOutput->resume();
+}
+
+void SpacjaTeleClient::updateChannel()
+{
+	ui.ClientName->setText(QString::fromStdString(currentChannel->nameOnChannel));
+	updateDestinations();
+}
+
+void SpacjaTeleClient::updateDestinations()
+{
+	sess.ClearDestinations();
+	for (Host host : currentChannel->hosts)
+	{
+		destip = host.hostAddress.toIPv4Address();
+		destport = host.hostPort;
+		jrtplib::RTPIPv4Address addr(destip, destport);
+
+		status = sess.AddDestination(addr);
+		SpacjaTeleClient::checkerror(status);
+	}
 }
 
 void SpacjaTeleClient::onChangeChannel() 
@@ -204,12 +218,8 @@ SpacjaTeleClient::~SpacjaTeleClient()
 void SpacjaTeleClient::disconnectAll()
 {
 	m_audioInput->stop();
-	m_audioInfo->stop();
 	m_audioOutput->stop();
-
-
 	sess.BYEDestroy(jrtplib::RTPTime(10, 0), 0, 0);
-	sessServ.BYEDestroy(jrtplib::RTPTime(10, 0), 0, 0);
 
 #ifdef RTP_SOCKETTYPE_WINSOCK
 	WSACleanup();
@@ -222,9 +232,10 @@ void SpacjaTeleClient::audioInit(const QAudioDeviceInfo &deviceInfoIn, const QAu
 	format.setSampleRate(8000);
 	format.setChannelCount(1);
 	format.setSampleSize(8);
-	format.setSampleType(QAudioFormat::SignedInt);
+	format.setSampleType(QAudioFormat::UnSignedInt);
 	format.setByteOrder(QAudioFormat::LittleEndian);
 	format.setCodec("audio/pcm");
+	auto x = format.codec(); 
 
 	if (!deviceInfoIn.isFormatSupported(format)) {
 		qWarning() << "Default format not supported - trying to use nearest";
@@ -234,9 +245,8 @@ void SpacjaTeleClient::audioInit(const QAudioDeviceInfo &deviceInfoIn, const QAu
 		qWarning() << "Default format not supported - trying to use nearest";
 		format = deviceInfoOut.nearestFormat(format);
 	}
-	m_audioInfo.reset(new AudioInfo(format));//nadawanie
+
 	m_audioInput.reset(new QAudioInput(deviceInfoIn, format));//nadawanie
-	m_audioInfo->start();//nadawanie
 	m_audioOutput.reset(new QAudioOutput(deviceInfoOut, format));
 }
 
@@ -256,7 +266,8 @@ void SpacjaTeleClient::sendAudio()
 		qint64 l = io->read(buffer.data(), len);
 		if (l > 0)
 		{
-			status = sess.SendPacket((void *)buffer.data(), buffer.length(), 0, false, 1);
+			std::cout << buffer.data();
+			status = sess.SendPacket((void *)buffer.data(), buffer.length(), 96, true, 1);
 			SpacjaTeleClient::checkerror(status);
 		}
 	});
@@ -274,9 +285,9 @@ void SpacjaTeleClient::getAudio()
 
 		int chunks = m_audioOutput->bytesFree() / m_audioOutput->periodSize();
 		while (chunks) {
-			const qint64 len = sessServ.arrayBuff.length();
+			const qint64 len = sess.arrayBuff.length();
 			if (len)				
-				io->write(sessServ.arrayBuff.data(), len);
+				io->write(sess.arrayBuff.data(), len);
 			if (len != m_audioOutput->periodSize())
 				break;
 			--chunks;
@@ -306,27 +317,17 @@ void SpacjaTeleClient::muteAudioOut()
 		ui.MicSig->setIcon(ButtonIcon);
 		ui.MicSig->setIconSize(pixmap.rect().size());
 		ui.MicSig->setFixedSize(pixmap.rect().size());
-		sessServ.arrayBuff.clear();
+		sess.arrayBuff.clear();
 	}
 	else if (m_audioInput->state() == QAudio::IdleState) {
 		// no-op
 	}
 }
 
-void SpacjaTeleClient::rtpInit(std::string ipString, uint16_t portIn, uint16_t potDes)
+void SpacjaTeleClient::rtpInit()
 {
-	WSAStartup(MAKEWORD(2, 2), &dat);
-	portbase = portIn;
 
-	ipstr = ipString;
-	destip = inet_addr(ipstr.c_str());
-	if (destip == INADDR_NONE)
-	{
-		std::cerr << "Bad IP address specified" << std::endl;
-	}
-	destip = ntohl(destip);
-	destport = potDes;
-
+	portbase = currentChannel->portAudioIn;
 	sessparams.SetOwnTimestampUnit(1.0 / 8000.0);
 
 	sessparams.SetAcceptOwnPackets(true);
@@ -334,156 +335,25 @@ void SpacjaTeleClient::rtpInit(std::string ipString, uint16_t portIn, uint16_t p
 	status = sess.Create(sessparams, &transparams);
 	SpacjaTeleClient::checkerror(status);
 
-	jrtplib::RTPIPv4Address addr(destip, destport);
-
-	status = sess.AddDestination(addr);
-	SpacjaTeleClient::checkerror(status);
-}
-
-void SpacjaTeleClient::rtpServInit(uint16_t portIn)
-{
-
-#ifdef RTP_SOCKETTYPE_WINSOCK
-	WSAStartup(MAKEWORD(2, 2), &datServ);
-#endif // RTP_SOCKETTYPE_WINSOCK
-
-	portbaseServ = portIn;
-	sessparamsServ.SetOwnTimestampUnit(1.0 / 8000.0);
-	transparamsServ.SetPortbase(portbaseServ);
-	statusServ = sessServ.Create(sessparamsServ, &transparamsServ);
-	checkerror(statusServ);
+	updateDestinations();
 	getAudio();
 }
 
-AudioInfo::AudioInfo(const QAudioFormat &format)
-	: m_format(format)
-{
-	switch (m_format.sampleSize()) {
-	case 8:
-		switch (m_format.sampleType()) {
-		case QAudioFormat::UnSignedInt:
-			m_maxAmplitude = 255;
-			break;
-		case QAudioFormat::SignedInt:
-			m_maxAmplitude = 127;
-			break;
-		default:
-			break;
-		}
-		break;
-	case 16:
-		switch (m_format.sampleType()) {
-		case QAudioFormat::UnSignedInt:
-			m_maxAmplitude = 65535;
-			break;
-		case QAudioFormat::SignedInt:
-			m_maxAmplitude = 32767;
-			break;
-		default:
-			break;
-		}
-		break;
+//void SpacjaTeleClient::rtpServInit(uint16_t portIn)
+//{
+//
+//#ifdef RTP_SOCKETTYPE_WINSOCK
+//	WSAStartup(MAKEWORD(2, 2), &datServ);
+//#endif // RTP_SOCKETTYPE_WINSOCK
+//
+//	portbaseServ = portIn;
+//	sessparamsServ.SetOwnTimestampUnit(1.0 / 8000.0);
+//	transparamsServ.SetPortbase(portbaseServ);
+//	statusServ = sessServ.Create(sessparamsServ, &transparamsServ);
+//	checkerror(statusServ);
+//	getAudio();
+//}
 
-	case 32:
-		switch (m_format.sampleType()) {
-		case QAudioFormat::UnSignedInt:
-			m_maxAmplitude = 0xffffffff;
-			break;
-		case QAudioFormat::SignedInt:
-			m_maxAmplitude = 0x7fffffff;
-			break;
-		case QAudioFormat::Float:
-			m_maxAmplitude = 0x7fffffff; // Kind of
-		default:
-			break;
-		}
-		break;
-
-	default:
-		break;
-	}
-}
-
-void AudioInfo::start()
-{
-	open(QIODevice::WriteOnly);
-}
-
-void AudioInfo::stop()
-{
-	close();
-}
-
-qint64 AudioInfo::readData(char *data, qint64 maxlen)
-{
-	Q_UNUSED(data)
-		Q_UNUSED(maxlen)
-
-		return 0;
-}
-
-qint64 AudioInfo::writeData(const char *data, qint64 len)
-{
-	if (m_maxAmplitude) {
-		Q_ASSERT(m_format.sampleSize() % 8 == 0);
-		const int channelBytes = m_format.sampleSize() / 8;
-		const int sampleBytes = m_format.channelCount() * channelBytes;
-		Q_ASSERT(len % sampleBytes == 0);
-		const int numSamples = len / sampleBytes;
-
-		quint32 maxValue = 0;
-		const unsigned char *ptr = reinterpret_cast<const unsigned char *>(data);
-
-		for (int i = 0; i < numSamples; ++i) {
-			for (int j = 0; j < m_format.channelCount(); ++j) {
-				quint32 value = 0;
-
-				if (m_format.sampleSize() == 8 && m_format.sampleType() == QAudioFormat::UnSignedInt) {
-					value = *reinterpret_cast<const quint8*>(ptr);
-				}
-				else if (m_format.sampleSize() == 8 && m_format.sampleType() == QAudioFormat::SignedInt) {
-					value = qAbs(*reinterpret_cast<const qint8*>(ptr));
-				}
-				else if (m_format.sampleSize() == 16 && m_format.sampleType() == QAudioFormat::UnSignedInt) {
-					if (m_format.byteOrder() == QAudioFormat::LittleEndian)
-						value = qFromLittleEndian<quint16>(ptr);
-					else
-						value = qFromBigEndian<quint16>(ptr);
-				}
-				else if (m_format.sampleSize() == 16 && m_format.sampleType() == QAudioFormat::SignedInt) {
-					if (m_format.byteOrder() == QAudioFormat::LittleEndian)
-						value = qAbs(qFromLittleEndian<qint16>(ptr));
-					else
-						value = qAbs(qFromBigEndian<qint16>(ptr));
-				}
-				else if (m_format.sampleSize() == 32 && m_format.sampleType() == QAudioFormat::UnSignedInt) {
-					if (m_format.byteOrder() == QAudioFormat::LittleEndian)
-						value = qFromLittleEndian<quint32>(ptr);
-					else
-						value = qFromBigEndian<quint32>(ptr);
-				}
-				else if (m_format.sampleSize() == 32 && m_format.sampleType() == QAudioFormat::SignedInt) {
-					if (m_format.byteOrder() == QAudioFormat::LittleEndian)
-						value = qAbs(qFromLittleEndian<qint32>(ptr));
-					else
-						value = qAbs(qFromBigEndian<qint32>(ptr));
-				}
-				else if (m_format.sampleSize() == 32 && m_format.sampleType() == QAudioFormat::Float) {
-					value = qAbs(*reinterpret_cast<const float*>(ptr) * 0x7fffffff); // assumes 0-1.0
-				}
-
-				maxValue = qMax(value, maxValue);
-				ptr += channelBytes;
-			}
-		}
-
-		maxValue = qMin(maxValue, m_maxAmplitude);
-		m_level = qreal(maxValue) / m_maxAmplitude;
-	}
-
-	emit update();
-	return len;
-}
 
 void MyRTPSession::OnPollThreadStep()
 {
@@ -528,68 +398,100 @@ void SpacjaTeleClient::acceptConnection()
 		this, SLOT(displayError(QAbstractSocket::SocketError)));
 }
 
+
+bool operator==(const Host& lhs, const Host& rhs)
+{
+	return lhs.hostAddress == rhs.hostAddress && lhs.hostPort == rhs.hostPort;
+}
+
 void SpacjaTeleClient::updateServerProgress()
 {
-	bytesReceived += (int)tcpServerConnection->bytesAvailable();
-	QByteArray abc(100, '_');
-	tcpServerConnection->read(abc.data(), 100);
-	std::string input = abc.data();
-	std::string delimiter = " ";
+	bytesReceived += static_cast<int>(tcpServerConnection->bytesAvailable());
+	Host server;
+	server.hostAddress = tcpServerConnection->peerAddress();
+	server.hostPort = tcpServerConnection->peerPort();
+
+	QByteArray buffer(20, ' ');
+	tcpServerConnection->read(buffer.data(), 20);
+	std::string input = buffer.data();
+	std::string delimiter = "/";
 
 	size_t pos = 0;
-	std::string token;
-	while ((pos = input.find(delimiter)) != std::string::npos) {
-		token = input.substr(0, pos);
+
+
+
+	while ((pos = input.find(delimiter)) != std::string::npos) 
+	{
+		const auto token = input.substr(0, pos);
 		input.erase(0, pos + delimiter.length());
+		bool operationComplite = false;
 
-		if (token == "name")// name newName
+		if (currentChannel->server == server)
 		{
-			ui.ClientName->setText(QString::fromStdString(input));
-		}
-		else if (token == "beReady")// ready INT_time
-		{
-			beReadySig(std::atoi(input.c_str()));
+			if (token == "BRDY")// ready INT_time
+			{
+				beReadySig(stoi(input));
+				operationComplite = true;
+			}
 
+			else if (token == "LIVE")// live
+			{
+				beLiveSig();
+				operationComplite = true;
+			}
 		}
-		else if (token == "live")// live
+
+		ChannelInfo* channelInfo = getChannelInfo(server);
+		if(!channelInfo)
 		{
-			beLiveSig();
+
+			ChannelInfo newChannelInfo;
+			newChannelInfo.server = server;
+			channelInfos.push_back(newChannelInfo);
+			channelInfo = &channelInfos.back();
+			{
+				ui.ChannelSpin->setMaximum(channelInfos.size());
+			}
 		}
-		else if (token == "ch1")// ch1
+		if (token == "NAME")// name newName
 		{
-			ch1 = input;
+			channelInfo->nameOnChannel = input;
+			operationComplite = true;
+			
 		}
-		else if (token == "ch2")// ch2
+
+		else if (token == "AUIN")// 
 		{
-			ch2 = input;
+			channelInfo->portAudioIn = stoi(input);
+			operationComplite = true;
 		}
-		else if (token == "ch3")// ch3
+		else if (token == "ADDHOST")
 		{
-			ch3 = input;
+			delimiter = ":";
+			if((pos = input.find(delimiter)) != std::string::npos)
+			{
+				std::string hostname = input.substr(0, pos);
+				input.erase(0, pos + delimiter.length());
+
+				Host newHost;
+				newHost.hostAddress = QHostAddress(QString::fromStdString(hostname));
+				newHost.hostPort = stoi(input);
+
+				channelInfo->hosts.push_back(newHost);
+				operationComplite = true;
+			}
 		}
-		else if (token == "ch4")// ch4
+
+		if(firstConfiguration)
 		{
-			ch4 = input;
+			changeChannel(1);
+			firstConfiguration = false;
 		}
-		else if (token == "PO1")// PO1
+
+		if(operationComplite)
 		{
-			portAudioOut1 = std::atoi(input.c_str());
-		}
-		else if (token == "PO2")// PO2
-		{
-			portAudioOut2 = std::atoi(input.c_str());
-		}
-		else if (token == "PO3")// PO3
-		{
-			portAudioOut3 = std::atoi(input.c_str());
-		}
-		else if (token == "PO4")// PO4
-		{
-			portAudioOut4 = std::atoi(input.c_str());
-		}
-		else if (token == "PI")// PI
-		{
-			portAudioIn = std::atoi(input.c_str());
+			updateChannel();
+			tcpServerConnection->write("ACK/");
 		}
 	}
 
@@ -599,6 +501,30 @@ void SpacjaTeleClient::updateServerProgress()
 		QApplication::restoreOverrideCursor();
 #endif
 	}
+}
+
+bool SpacjaTeleClient::isInChannelList(Host& server)
+{
+	for (auto channelInfo : channelInfos)
+	{
+		if(channelInfo.server == server)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+ChannelInfo* SpacjaTeleClient::getChannelInfo(Host& server)
+{
+	for (ChannelInfo &channelInfo : channelInfos)
+	{
+		if (channelInfo.server == server)
+		{
+			return &channelInfo;
+		}
+	}
+	return nullptr;
 }
 
 void SpacjaTeleClient::displayError(QAbstractSocket::SocketError socketError)

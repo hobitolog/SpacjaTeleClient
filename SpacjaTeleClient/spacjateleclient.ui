@@ -36,7 +36,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Środek</string>
+     <string/>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
