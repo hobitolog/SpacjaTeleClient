@@ -60,7 +60,7 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 	QApplication::setOverrideCursor(Qt::WaitCursor);
 #endif
 
-	while (!tcpServer.isListening() && !tcpServer.listen(QHostAddress::Any, 6060)) {
+	while (!tcpServer.isListening() && !tcpServer.listen(QHostAddress::Any, 6061)) {
 		QMessageBox::StandardButton ret = QMessageBox::critical(this,
 			tr("TcpServer"),
 			tr("Unable to start: %1.")
@@ -76,12 +76,9 @@ SpacjaTeleClient::SpacjaTeleClient(QWidget *parent)
 
 	ui.ChannelSpin->setMaximum(0);
 	ui.ChannelSpin->setMinimum(1);
-	QTcpSocket tcpClient;
-	tcpClient.connectToHost(QHostAddress::Broadcast, serverTcpPort);
-	if (tcpClient.waitForConnected(10000))
-	{
-		tcpClient.write("DISC");
-	}
+	QUdpSocket udpClient;
+	udpClient.bind(QHostAddress(QHostAddress::AnyIPv4), 0);
+	udpClient.writeDatagram("DISC/", QHostAddress::Broadcast, 6060);
 
 	ChannelInfo channelInfo;
 	channelInfo.portAudioIn = 6070;
